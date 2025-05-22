@@ -2,16 +2,17 @@ CameraX = 0
 CameraY = 0
 require"Objects"
 require"animation"
-
+require"spritesName"
+require"Enemy"
 
 function Player(debugging)
 	debugging = debugging or false
 	local width = 16
 	local height = 16
-	local bullets = {}
+	bullets = {}
 	local bulletSpeed = 200
 	
-	local WalkPlayerAnim = WalkPlayerAnim(0.12)
+	local Animations = Animations(0.12)
 	
 	return {
 		x = (love.graphics.getWidth()/2)/3.5-16,
@@ -22,29 +23,29 @@ function Player(debugging)
 		oldX = 0,
 		oldY = 0,
 		
-		Walk = function(self, dt)
+	Walk = function(self, dt)
 			local moveX, moveY = 0, 0
 			local speed = self.speed / love.timer.getFPS()
-    
+
 			self.oldX = self.x
 			self.oldY = self.y
-			
+    
 			if not love.keyboard.isDown("w") and not love.keyboard.isDown("s") and not love.keyboard.isDown("d") and not love.keyboard.isDown("a") and PlayerGoDown then
-				PlayerSprite = love.graphics.newImage("sprites/Zombie-Tileset---_0476_Capa-477.png")
+				PlayerSprite = PlayerDefaultDown
 			end
-			
+    
 			if not love.keyboard.isDown("w") and not love.keyboard.isDown("s") and not love.keyboard.isDown("d") and not love.keyboard.isDown("a") and PlayerGoUp then
-				PlayerSprite = love.graphics.newImage("sprites/Zombie-Tileset---_0482_Capa-483.png")
+				PlayerSprite = PlayerDefaultUp
 			end
-			
+    
 			if not love.keyboard.isDown("w") and not love.keyboard.isDown("s") and not love.keyboard.isDown("d") and not love.keyboard.isDown("a") and PlayerGoRight then
-				PlayerSprite = love.graphics.newImage("sprites/Zombie-Tileset---_0479_Capa-480.png")
+				PlayerSprite = PlayerDefaultRight
 			end
-			
+    
 			if not love.keyboard.isDown("w") and not love.keyboard.isDown("s") and not love.keyboard.isDown("d") and not love.keyboard.isDown("a") and PlayerGoLeft then
-				PlayerSprite = love.graphics.newImage("sprites/Zombie-Tileset---_0485_Capa-486.png")
+				PlayerSprite = PlayerDefaultLeft
 			end
-			
+    
 			if love.keyboard.isDown("w") then
 				moveY = moveY - speed
 			elseif love.keyboard.isDown("s") then
@@ -56,41 +57,76 @@ function Player(debugging)
 			elseif love.keyboard.isDown("a") then
 				moveX = moveX - speed
 			end
-			
+    
 			if moveX > 0 then
-				WalkPlayerAnim:Right()
+				Animations.PlayPlayer(PlayerGoRightTable)
+				PlayerGoDown = false
+				PlayerGoUp = false
+				PlayerGoLeft = false
+				PlayerGoRight = true
 			elseif moveX < 0 then
-				WalkPlayerAnim:Left()
+				Animations.PlayPlayer(PlayerGoLeftTable)
+				PlayerGoDown = false
+				PlayerGoUp = false
+				PlayerGoLeft = true
+				PlayerGoRight = false
 			elseif moveY < 0 then 
-				WalkPlayerAnim:Up()
+				Animations.PlayPlayer(PlayerGoUpTable)
+				PlayerGoDown = false
+				PlayerGoUp = true
+				PlayerGoLeft = false
+				PlayerGoRight = false
 			elseif moveY > 0 then
-				WalkPlayerAnim:Down()
+				Animations.PlayPlayer(PlayerGoDownTable)
+				PlayerGoDown = true
+				PlayerGoUp = false
+				PlayerGoLeft = false
+				PlayerGoRight = false
 			end
     
 			local newX = self.x + moveX
 			local newY = self.y + moveY
     
-			local collided = false
-			for i, v in ipairs(Objects) do 
-				if Objects[i].collision then
-					local widthLocal = Objects[i].width or 16
-					local heightLocal = Objects[i].height or 16
-					if CheckCollision(newX, newY, width, height, Objects[i].x, Objects[i].y, widthLocal, heightLocal) then  collided = true
-						if not CheckCollision(self.x, newY, width, height, Objects[i].x, Objects[i].y, widthLocal, heightLocal) then
-							self.y = newY
-						elseif not CheckCollision(newX, self.y, width, height, Objects[i].x, Objects[i].y, widthLocal, heightLocal) then
-							self.x = newX
-						else
-							self.x = self.oldX
-							self.y = self.oldY
-						end
+			local canMoveX = true
+			local canMoveY = true
+    
+			for i, obj in ipairs(Objects) do
+				if obj.collision then
+					if CheckCollision(newX, self.y, width, height, obj.x, obj.y, obj.width or 16, obj.height or 16) then
+						canMoveX = false
+					end
+            
+					if CheckCollision(self.x, newY, width, height, obj.x, obj.y, obj.width or 16, obj.height or 16) then
+						canMoveY = false
 					end
 				end
 			end
     
-			if not collided then
+			for i, enemy in ipairs(enemies) do
+				if enemy.collision then
+					if CheckCollision(newX, self.y, width, height, enemy.x, enemy.y, enemy.width, enemy.height) then
+						canMoveX = false
+					end
+					if CheckCollision(self.x, newY, width, height, enemy.x, enemy.y, enemy.width, enemy.height) then
+						canMoveY = false
+					end
+				end
+			end
+    
+			if canMoveX then
 				self.x = newX
+			end
+    
+			if canMoveY then
 				self.y = newY
+			end
+    
+			if moveX ~= 0 and moveY ~= 0 then
+				if not canMoveX and canMoveY then
+					self.y = newY
+				elseif canMoveX and not canMoveY then
+					self.x = newX
+				end
 			end
 		end,
 		
@@ -118,7 +154,7 @@ function Player(debugging)
 			local bulletDx = bulletSpeed * math.cos(angle)
 			local bulletDy = bulletSpeed * math.sin(angle)
 		
-			table.insert(bullets, {x = startX, y = startY, dx = bulletDx, dy = bulletDy})
+			table.insert(bullets, {x = startX, y = startY, dx = bulletDx, dy = bulletDy, timer=0})
 		end,
 		
 		ShootDraw = function(self)
